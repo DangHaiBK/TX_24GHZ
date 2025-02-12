@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#include <SPI.h>
 #include "RF24.h"
 
 #include "config/config.h"
@@ -30,6 +31,7 @@ dataPacket prevData;
 
 #ifdef SERIAL_DEBUG
 pseudo_packet_t packet;
+void pseudo_send_data()
 #endif  /* SERIAL_DEBUG */
 
 bool check_payload_receive(radiolink_protocol_t payload);
@@ -92,7 +94,7 @@ void setup() {
   radio.startListening();
   
   /* Delay for stabilization */
-  delay(1000);
+  //delay(1000);
 
 #ifdef SERIAL_DEBUG
   Serial.println("Preparing for sending packet ...");
@@ -207,6 +209,7 @@ void loop() {
     radio_link_send.infoByte = RADIOLINK_INFO_STICK_POS;
     radio_link_send.endByte = RADIOLINK_END_BYTE;
 
+    //radio.openWritingPipe(TX_ADDR);
     radio.write(&radio_link_send, sizeof(radio_link_send));
 
     /* Restart receiver mode to get packet from RX */
@@ -219,6 +222,9 @@ void loop() {
       toggle_period = millis();
       digitalWrite(LED_STATUS_TX, !digitalRead(LED_STATUS_TX));
     }
+  }
+  else {
+    digitalWrite(LED_STATUS_TX, HIGH);
   }
 
 #ifdef BATT_CHECK_STATUS 
@@ -244,7 +250,7 @@ void loop() {
 
 bool check_payload_receive(radiolink_protocol_t payload) {
   if ((payload.startByte == RADIOLINK_START_BYTE) && (payload.endByte == RADIOLINK_END_BYTE) && (payload.infoByte == RADIOLINK_STATUS_PACKET_OK)) {
-  return true;
+    return true;
   }
   else {
     return false;
