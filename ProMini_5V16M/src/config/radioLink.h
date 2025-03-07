@@ -28,7 +28,7 @@ typedef struct {
     uint8_t startByte;
     uint8_t length;
     uint8_t infoByte;
-    uint8_t payload[6];     /* 0 - throttle, 1 - yaw, 2 - pitch, 3 - roll, 4 - aux1, 5 - aux2 */
+    uint16_t payload[6];     /* 0 - throttle, 1 - yaw, 2 - pitch, 3 - roll, 4 - aux1, 5 - aux2 */
     uint8_t endByte;
 } radiolink_protocol_t;
 

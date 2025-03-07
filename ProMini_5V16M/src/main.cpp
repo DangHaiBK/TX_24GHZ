@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include <Bounce2.h>
+
 #include <SPI.h>
 #include "RF24.h"
 
@@ -8,6 +10,17 @@
 
 /* Radio class instance */
 RF24 radio(CE_PIN, CSN_PIN);
+
+/* Instance a button AUX1, AUX2 object */
+Bounce2::Button Aux1 = Bounce2::Button();
+Bounce2::Button Aux2 = Bounce2::Button();
+
+/* Constant values for minimum percent and maximum percent for each channel */
+// const int maxPercentChannel = 100;
+// const int minPercentChannel = -100;
+
+/* State variables */
+bool receivedRxToSend;
 
 /* Timestamp variables */
 unsigned long last_receive;
@@ -49,8 +62,19 @@ void setup() {
   packet.yaw = 16;
 #endif  /* SERIAL_DEBUG */
 
-  pinMode(AUX1_CHANNEL, INPUT);
-  pinMode(AUX2_CHANNEL, INPUT);
+  // pinMode(AUX1_CHANNEL, INPUT);
+  // pinMode(AUX2_CHANNEL, INPUT);
+
+  Aux1.attach(AUX1_CHANNEL, INPUT);
+  Aux2.attach(AUX2_CHANNEL, INPUT);
+
+  /* Define debounce interval AUX Channels in milliseconds */
+  Aux1.interval(5);
+  Aux2.interval(5);
+
+  /* Indicate state corresponding to physically pressing Channels */
+  Aux1.setPressedState(LOW);
+  Aux2.setPressedState(LOW);
 
   pinMode(LED_STATUS_TX, OUTPUT);
   pinMode(LED_POWER, OUTPUT);
@@ -122,6 +146,7 @@ void loop() {
       radio.read(&radio_link_response, sizeof(radio_link_response));
       if (check_payload_receive(radio_link_response)) {
         last_receive = millis();
+        receivedRxToSend = true;
       }
     }
   }
@@ -130,94 +155,110 @@ void loop() {
   if (millis() - last_send >= FRAME_RATE) {
     last_send = millis();
 
-    /* Switch to sending mode of RF24 */
-    radio.stopListening();
+    if (receivedRxToSend) {
+      /* Switch to sending mode of RF24 */
+      radio.stopListening();
 
-    /* Analog values*/
-    curData.throttle = analogRead(THROTTLE_CHANNEL);
-    curData.throttle = constrain(curData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX);
-    if (abs(curData.throttle - prevData.throttle) >= VALUE_DIFFERENCE) {
-      radio_link_send.payload[0] = map(curData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      //packetData.throttle = map(curData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      prevData.throttle = curData.throttle;
-    }
-    else {
+      /* Analog value for Throttle channel */
+      curData.throttle = analogRead(THROTTLE_CHANNEL);
+      curData.throttle = constrain(curData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX);
+      if (abs(curData.throttle - prevData.throttle) >= VALUE_DIFFERENCE) {
+        radio_link_send.payload[0] = map(curData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        //packetData.throttle = map(curData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        prevData.throttle = curData.throttle;
+      }
       radio_link_send.payload[0] = map(prevData.throttle, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-    }
-
-    curData.pitch = analogRead(PITCH_CHANNEL);
-    curData.pitch = constrain(curData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX);
-    if (abs(curData.pitch - prevData.pitch) >= VALUE_DIFFERENCE) {
-      radio_link_send.payload[2] = map(curData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      //packetData.pitch = map(curData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      prevData.pitch = curData.pitch;
-    }
-    else {
+      
+      /* Analog value for Pitch channel */
+      curData.pitch = analogRead(PITCH_CHANNEL);
+      curData.pitch = constrain(curData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX);
+      if (abs(curData.pitch - prevData.pitch) >= VALUE_DIFFERENCE) {
+        radio_link_send.payload[2] = map(curData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        //packetData.pitch = map(curData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        prevData.pitch = curData.pitch;
+      }
       radio_link_send.payload[2] = map(prevData.pitch, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-    }
 
-    curData.roll = analogRead(ROLL_CHANNEL);
-    curData.roll = constrain(curData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX);
-    if (abs(curData.roll - prevData.roll) >= VALUE_DIFFERENCE) {
-      radio_link_send.payload[3] = map(curData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      //packetData.roll = map(curData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      prevData.roll = curData.roll;
-    }
-    else {
+      /* Analog value for Roll channel */
+      curData.roll = analogRead(ROLL_CHANNEL);
+      curData.roll = constrain(curData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX);
+      if (abs(curData.roll - prevData.roll) >= VALUE_DIFFERENCE) {
+        radio_link_send.payload[3] = map(curData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        //packetData.roll = map(curData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        prevData.roll = curData.roll;
+      }
       radio_link_send.payload[3] = map(prevData.roll, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-    }
 
-    curData.yaw = analogRead(YAW_CHANNEL);
-    curData.yaw = constrain(curData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX);
-    if (abs(curData.yaw - prevData.yaw) >= VALUE_DIFFERENCE) {
-      radio_link_send.payload[1] = map(curData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      //packetData.yaw = map(curData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-      prevData.yaw = curData.yaw;
-    }
-    else {
+      /* Analog value for Yaw channel */
+      curData.yaw = analogRead(YAW_CHANNEL);
+      curData.yaw = constrain(curData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX);
+      if (abs(curData.yaw - prevData.yaw) >= VALUE_DIFFERENCE) {
+        radio_link_send.payload[1] = map(curData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        //packetData.yaw = map(curData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
+        prevData.yaw = curData.yaw;
+      }
       radio_link_send.payload[1] = map(prevData.yaw, VALUE_ADC_MIN, VALUE_ADC_MAX, VALUE_STICK_MIN, VALUE_STICK_MAX);
-    }
 
-    /* Digital values */
-    curData.AUX1 = digitalRead(AUX1_CHANNEL);
-    curData.AUX2 = digitalRead(AUX2_CHANNEL);
+      /* Digital values */
+      Aux1.update();
+      Aux2.update();
 
-    radio_link_send.payload[4] = (curData.AUX1 == 0) ? VALUE_STICK_MAX : VALUE_STICK_MIN;
-    radio_link_send.payload[5] = (curData.AUX2 == 0) ? VALUE_STICK_MAX : VALUE_STICK_MIN;
+      if (Aux1.pressed()) {
+        radio_link_send.payload[4] = VALUE_STICK_MAX;
+      }
+      else {    //released()
+        radio_link_send.payload[4] = VALUE_STICK_MIN;
+      }
+
+      if (Aux2.pressed()) {
+        radio_link_send.payload[5] = VALUE_STICK_MAX;
+      }
+      else {    //released()
+        radio_link_send.payload[5] = VALUE_STICK_MIN;
+      }
+
+      // curData.AUX1 = digitalRead(AUX1_CHANNEL);
+      // curData.AUX2 = digitalRead(AUX2_CHANNEL);
+
+      // radio_link_send.payload[4] = (curData.AUX1 == 0) ? VALUE_STICK_MAX : VALUE_STICK_MIN;
+      // radio_link_send.payload[5] = (curData.AUX2 == 0) ? VALUE_STICK_MAX : VALUE_STICK_MIN;
 
 #ifdef SERIAL_DEBUG
-    Serial.println("Stick data: ");
-    Serial.print("[THROTTLE]: ");
-    Serial.print(curData.throttle);
-    Serial.print(" [YAW]: ");
-    Serial.print(curData.yaw);
-    Serial.print(" [PITCH]: ");
-    Serial.print(curData.pitch);
-    Serial.print(" [ROLL]: ");
-    Serial.print(curData.roll);
+      Serial.println("Stick data: ");
+      Serial.print("[THROTTLE]: ");
+      Serial.print(curData.throttle);
+      Serial.print(" [YAW]: ");
+      Serial.print(curData.yaw);
+      Serial.print(" [PITCH]: ");
+      Serial.print(curData.pitch);
+      Serial.print(" [ROLL]: ");
+      Serial.print(curData.roll);
 
-    Serial.print(" [AUX1]: ");
-    Serial.print(curData.AUX1);
-    Serial.print(" [AUX2]: ");
-    Serial.print(curData.AUX2);
-    Serial.println();
+      Serial.println();
+      Serial.print(" [AUX1]: ");
+      Serial.print(radio_link_send.payload[4]);
+      Serial.print(" [AUX2]: ");
+      Serial.print(radio_link_send.payload[5]);
+      Serial.println();
 #endif /* SERIAL_DEBUG */
-  
-    /* Prepare packet and send through RF24 */
-    radio_link_send.startByte = RADIOLINK_START_BYTE;
-    radio_link_send.length = NUM_CHANNELS;
-    radio_link_send.infoByte = RADIOLINK_INFO_STICK_POS;
-    radio_link_send.endByte = RADIOLINK_END_BYTE;
+    
+      /* Prepare packet and send through RF24 */
+      radio_link_send.startByte = RADIOLINK_START_BYTE;
+      radio_link_send.length = NUM_CHANNELS;
+      radio_link_send.infoByte = RADIOLINK_INFO_STICK_POS;
+      radio_link_send.endByte = RADIOLINK_END_BYTE;
 
-    //radio.openWritingPipe(TX_ADDR);
-    radio.write(&radio_link_send, sizeof(radio_link_send));
+      //radio.openWritingPipe(TX_ADDR);
+      radio.write(&radio_link_send, sizeof(radio_link_send));
 
-    /* Restart receiver mode to get packet from RX */
-    radio.startListening();
+      /* Restart receiver mode to get packet from RX */
+      radio.startListening();
+    }
   }
 
   /* Led status when loss signal from receiver */
   if (millis() - last_receive >= SIGNAL_FEEDBACK_TIMEOUT) {
+    receivedRxToSend = false;
     if (millis() - toggle_period >= LOSS_TOGGLE_PERIOD) {
       toggle_period = millis();
       digitalWrite(LED_STATUS_TX, !digitalRead(LED_STATUS_TX));
@@ -248,6 +289,7 @@ void loop() {
 
 }
 
+/* Function check payload received from Rx */
 bool check_payload_receive(radiolink_protocol_t payload) {
   if ((payload.startByte == RADIOLINK_START_BYTE) && (payload.endByte == RADIOLINK_END_BYTE) && (payload.infoByte == RADIOLINK_STATUS_PACKET_OK)) {
     return true;
@@ -257,6 +299,7 @@ bool check_payload_receive(radiolink_protocol_t payload) {
   }
 }
 
+/* Pseudo data to use Print function */
 void pseudo_send_data() {
   static int value;
   value = random(255);

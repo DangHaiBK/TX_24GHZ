@@ -20,16 +20,20 @@
 #define SIGNAL_LOST_TIMEOUT       1000  // [ms]
 #define SIGNAL_FEEDBACK_TIMEOUT   2000  // [ms]
 
-#define VALUE_ADC_MIN             0
-#define VALUE_ADC_MID             511
-#define VALUE_ADC_MAX             1023
+#define VALUE_ADC_MIN                         0
+#define VALUE_ADC_MID                         511
+#define VALUE_ADC_MAX                         1023
 
-#define VALUE_STICK_MIN           1000
-#define VALUE_STICK_MID           1500
-#define VALUE_STICK_MAX           2000
+#define VALUE_STICK_MIN_MINUS_PERCENT_150     732
+#define VALUE_STICK_MAX_PERCENT_150           2268
+#define VALUE_STICK_MIN_MINUS_PERCENT_120     988
+#define VALUE_STICK_MAX_PERCENT_120           2012
+#define VALUE_STICK_MIN                       1000
+#define VALUE_STICK_MID                       1500
+#define VALUE_STICK_MAX                       2000
 
 #define BATT_VOLT_THRES           2.7f
-#define VALUE_DIFFERENCE          10
+#define VALUE_DIFFERENCE          5
 
 #define CE_PIN                    9
 #define CSN_PIN                   10      
@@ -53,10 +57,10 @@
  * Define channel data struct
  */
 typedef struct {
-    uint8_t throttle;
-    uint8_t yaw;
-    uint8_t pitch;
-    uint8_t roll;
+    uint16_t throttle;
+    uint16_t yaw;
+    uint16_t pitch;
+    uint16_t roll;
     uint8_t AUX1;
     uint8_t AUX2;
 } dataPacket;
